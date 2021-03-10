@@ -2,52 +2,56 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use HoangPhi\VietnamMap\Models\District;
 use HoangPhi\VietnamMap\Models\Province;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
-use Intervention\Image\Facades\Image;
 
 
 class AuthController extends Controller
 {
-    public function register()
+    /**
+     * @return View
+     */
+    public function register(): View
     {
         $provinces = Province::all();
         $data = [
             'provinces' => $provinces
         ];
+
         return view('auth', $data);
     }
 
-    public function store(Request $request)
+    /**
+     * @param Request $request
+     * @return User
+     */
+    public function store(Request $request): User
     {
-        $request->validate([
-            'name' => 'required',
-            'email' => 'required|email|unique:users',
-            'password' => 'bail|required|min:6',
-            'password_confirmation' => 'bail|required|same:password',
-        ]);
         $avatar = $this->uploadAvatar($request);
 
         $data = [
-            'name' => $request->input('name'),
-            'email' => $request->input('password'),
+            'name'     => $request->input('name'),
+            'email'    => $request->input('password'),
             'password' => Hash::make($request->input('password')),
+            'avatar'   => $avatar['file_path'],
             'province' => $request->input('province'),
             'district' => $request->input('district'),
             'ward'     => $request->input('ward'),
         ];
-        dd($avatar, $data);
 
-
-
-
+        return User::create($data);
     }
 
+    /**
+     * @param Province $province
+     * @return JsonResponse
+     */
     public function getDistrictFromProvinces(Province $province): JsonResponse
     {
         $districts = $province->districts()->get();
@@ -58,6 +62,10 @@ class AuthController extends Controller
         ], 200);
     }
 
+    /**
+     * @param District $district
+     * @return JsonResponse
+     */
     public function getWardFromDistrict(District $district): JsonResponse
     {
         $wards = $district->wards()->get();
@@ -68,45 +76,27 @@ class AuthController extends Controller
         ], 200);
     }
 
+    /**
+     * Upload avatar
+     *
+     * @param $request
+     * @return array
+     */
     public function uploadAvatar($request): array
     {
         if (!$request->hasFile('avatar')) {
             return [];
         }
-//        $file = $request->file('avatar');
-//
-//        $resizedImg = Image::make($file);
-//
-//        $fileNameOrigin = $file->getClientOriginalName();
-//
-//        $fileNameHash = Str::random(20) . '.' . $file->extension();
-//
-//        $resizedImg->fit(200, 200);
-//
-//        $path = $file->storeAs('public/' . 'avatar', $fileNameHash);
-//
-//        return [
-//            'file_name' => $fileNameOrigin,
-//            'file_path' => $url = Storage::url($path),
-//        ];
 
          $image = $request->file('avatar');
-
-         $resized_img = Image::make($image);
-
          $fileNameOrigin = $image->getClientOriginalName();
-
-         $fileNameHash = Str::random(20) . '.' . $image->extension();
-
-         $resized_img->fit( 200);
-
-         $path = $image->storeAs('public/' . 'avatar', $fileNameHash);
+         $fileNameHash =  time() . $fileNameOrigin;
+         $path = Storage::disk('local')->putFileAs('public/avatar', $image, $fileNameHash);
 
         return [
             'file_name' => $fileNameOrigin,
             'file_path' => $url = Storage::url($path),
         ];
-
     }
 
 }
